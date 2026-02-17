@@ -9,7 +9,14 @@ import shutil
 app = Flask(__name__)
 # Enable CORS for all routes, but allow configuring origins via env var
 frontend_url = os.environ.get('FRONTEND_URL', '*')
-CORS(app, resources={r"/*": {"origins": frontend_url}}, expose_headers=["Content-Disposition"])
+allowed_origins = [frontend_url]
+if frontend_url != '*':
+    allowed_origins = frontend_url.split(',')
+    
+# Add specific Vercel app domain if not present (handling trailing slash variations just in case)
+allowed_origins.extend(["https://pdf2excel-phi.vercel.app", "https://pdf2excel-phi.vercel.app/"])
+
+CORS(app, resources={r"/*": {"origins": allowed_origins}}, expose_headers=["Content-Disposition"])
 
 UPLOAD_FOLDER = 'uploads'
 OUTPUT_FOLDER = 'outputs'
