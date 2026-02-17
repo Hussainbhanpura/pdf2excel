@@ -7,7 +7,9 @@ import tempfile
 import shutil
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes
+# Enable CORS for all routes, but allow configuring origins via env var
+frontend_url = os.environ.get('FRONTEND_URL', '*')
+CORS(app, resources={r"/*": {"origins": frontend_url}})
 
 UPLOAD_FOLDER = 'uploads'
 OUTPUT_FOLDER = 'outputs'
@@ -64,4 +66,5 @@ def health_check():
     return jsonify({'status': 'ok'}), 200
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(debug=True, host='0.0.0.0', port=port)
