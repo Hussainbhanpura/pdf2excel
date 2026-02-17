@@ -66,6 +66,14 @@ export function useConversion() {
             } else {
                 outputName = file.name.replace('.pdf', '.xlsx')
             }
+            // Auto-trigger download
+            const link = document.createElement('a')
+            link.href = url
+            link.download = outputName
+            document.body.appendChild(link)
+            link.click()
+            document.body.removeChild(link)
+            
             setFileName(outputName)
 
         } catch (err) {

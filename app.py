@@ -9,7 +9,7 @@ import shutil
 app = Flask(__name__)
 # Enable CORS for all routes, but allow configuring origins via env var
 frontend_url = os.environ.get('FRONTEND_URL', '*')
-CORS(app, resources={r"/*": {"origins": frontend_url}})
+CORS(app, resources={r"/*": {"origins": frontend_url}}, expose_headers=["Content-Disposition"])
 
 UPLOAD_FOLDER = 'uploads'
 OUTPUT_FOLDER = 'outputs'
