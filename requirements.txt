@@ -1,0 +1,8 @@
+camelot-py[cv]
+openpyxl
+pandas
+PyPDF2
+
+flask
+flask-cors
+werkzeug
