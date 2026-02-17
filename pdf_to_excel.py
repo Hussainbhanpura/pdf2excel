@@ -5,6 +5,7 @@ Converts tables from PDF files to Excel format using Camelot library
 
 import camelot
 import pandas as pd
+import numpy as np
 import os
 import sys
 from pathlib import Path
@@ -62,10 +63,38 @@ def extract_tables_from_pdf(pdf_path, output_excel_path=None, flavor='lattice'):
                 # Convert table to DataFrame
                 df = table.df
                 
+                
+                
+                # Convert numeric columns from text to numbers BEFORE cleaning
+                # This ensures we don't lose data during the cleaning process
+                for col in df.columns:
+                    # Clean the column data first - strip whitespace and handle formatting
+                    df[col] = df[col].astype(str).str.strip()
+                    # Remove common formatting: commas, spaces (but preserve decimal points)
+                    df[col] = df[col].str.replace(',', '', regex=False)
+                    df[col] = df[col].str.replace(' ', '', regex=False)
+                    
+                    # Only convert columns where ALL non-empty values are numeric
+                    # This prevents mixed columns from being converted incorrectly
+                    non_empty = df[col].replace('', pd.NA).replace('nan', pd.NA).dropna()
+                    if len(non_empty) > 0:
+                        # Try converting - if it works for all values, keep it
+                        try:
+                            converted = pd.to_numeric(non_empty, errors='raise')
+                            df[col] = pd.to_numeric(df[col], errors='coerce')
+                        except (ValueError, TypeError):
+                            # Keep as text if conversion fails
+                            pass
+                
                 # Clean up the dataframe
                 # Remove completely empty rows and columns
                 df = df.dropna(how='all', axis=0)  # Remove empty rows
                 df = df.dropna(how='all', axis=1)  # Remove empty columns
+                
+                # Skip if dataframe is empty after cleaning
+                if df.empty:
+                    print(f"   ⚠️  Table {i+1} is empty after cleaning, skipping...")
+                    continue
                 
                 # Create sheet name
                 sheet_name = f"Table_{i+1}_Page_{table.page}"
@@ -74,8 +103,42 @@ def extract_tables_from_pdf(pdf_path, output_excel_path=None, flavor='lattice'):
                 if len(sheet_name) > 31:
                     sheet_name = f"Table_{i+1}"
                 
+                
                 # Write to Excel
                 df.to_excel(writer, sheet_name=sheet_name, index=False, header=False)
+                
+                # Get the worksheet to apply number formatting
+                worksheet = writer.sheets[sheet_name]
+                
+                # Apply number formatting to cells with numeric values
+                # This ensures Excel treats them as numbers, not text
+                for row_idx, row in enumerate(df.values, start=1):
+                    for col_idx, value in enumerate(row, start=1):
+                        cell = worksheet.cell(row=row_idx, column=col_idx)
+                        
+                        # Try to convert to number - be aggressive about it
+                        if pd.notna(value) and value != '':
+                            # If already numeric, use it
+                            if isinstance(value, (int, float, np.integer, np.floating)):
+                                cell.value = float(value) if isinstance(value, (float, np.floating)) else int(value)
+                                if isinstance(value, (float, np.floating)) and value % 1 != 0:
+                                    cell.number_format = '0.00'
+                                else:
+                                    cell.number_format = '0'
+                            # If string, try to convert it
+                            elif isinstance(value, str):
+                                try:
+                                    # Try to parse as number
+                                    num_value = float(value)
+                                    cell.value = num_value
+                                    # Set format based on whether it has decimals
+                                    if num_value % 1 != 0:
+                                        cell.number_format = '0.00'
+                                    else:
+                                        cell.number_format = '0'
+                                except (ValueError, TypeError):
+                                    # Keep as text if not a number
+                                    pass
                 
                 print(f"   📊 Table {i+1} from page {table.page} -> Sheet: {sheet_name}")
                 print(f"      Shape: {df.shape[0]} rows × {df.shape[1]} columns")
