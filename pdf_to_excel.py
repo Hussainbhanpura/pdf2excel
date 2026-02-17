@@ -63,6 +63,23 @@ def extract_tables_from_pdf(pdf_path, output_excel_path=None, flavor='lattice'):
                 # Convert table to DataFrame
                 df = table.df
                 
+                # Fix merged header cells in first row
+                # Check if first cell contains all headers separated by newlines
+                if len(df) > 0 and len(df.columns) > 0:
+                    first_cell = str(df.iloc[0, 0])
+                    
+                    # If first cell has newlines, it likely contains all headers
+                    if '\n' in first_cell:
+                        # Split by newlines and clean up
+                        headers = [h.strip() for h in first_cell.split('\n') if h.strip()]
+                        
+                        # Distribute headers across columns
+                        num_cols = min(len(headers), len(df.columns))
+                        for j in range(num_cols):
+                            df.iloc[0, j] = headers[j]
+                        
+                        print(f"   🔧 Split merged headers: {len(headers)} headers distributed")
+                
                 
                 
                 # Convert numeric columns from text to numbers BEFORE cleaning
