@@ -1,11 +1,11 @@
 """
 PDF to Excel Converter using pdfplumber
-Fully hardened version
-Guarantees at least one visible sheet is written.
+Post-process Excel using NumPy to remove commas from numeric values
 """
 
 import pdfplumber
 import pandas as pd
+import numpy as np
 import os
 import sys
 
@@ -15,114 +15,83 @@ def pdf_to_excel_pdfplumber(pdf_path, output_excel_path=None):
         raise FileNotFoundError(f"PDF not found: {pdf_path}")
 
     if output_excel_path is None:
-        output_excel_path = pdf_path.replace('.pdf', '.xlsx').replace('.PDF', '.xlsx')
+        output_excel_path = pdf_path.replace(".pdf", ".xlsx").replace(".PDF", ".xlsx")
 
     print(f"📄 Reading PDF: {pdf_path}")
 
     all_tables = []
 
     # -------------------------
-    # Extract tables from PDF
+    # Extract tables
     # -------------------------
     with pdfplumber.open(pdf_path) as pdf:
         for page_num, page in enumerate(pdf.pages, start=1):
             tables = page.extract_tables()
 
             for table_num, table in enumerate(tables, start=1):
-                if table and any(any(cell for cell in row) for row in table):
+                if table:
                     df = pd.DataFrame(table)
-                    all_tables.append((page_num, table_num, df))
-                    print(f"   📊 Found table on page {page_num}, table {table_num}: {len(df)} rows")
-
-    # -------------------------
-    # Write to Excel
-    # -------------------------
-    any_sheet_written = False
-
-    with pd.ExcelWriter(output_excel_path, engine="openpyxl") as writer:
-
-        if not all_tables:
-            print("⚠️ No tables found. Creating placeholder sheet.")
-            pd.DataFrame(
-                {"Info": ["No extractable tables found in PDF"]}
-            ).to_excel(writer, sheet_name="NoData", index=False)
-            any_sheet_written = True
-
-        else:
-            for i, (page_num, table_num, df) in enumerate(all_tables):
-
-                original_df = df.copy()
-
-                # -------------------------
-                # Clean table safely
-                # -------------------------
-                df = df.replace('', pd.NA)
-                df = df.dropna(how='all', axis=0)
-                df = df.dropna(how='all', axis=1)
-                df = df.fillna('')
-
-                if df.empty or df.shape[1] == 0:
-                    print(f"   ⚠️ Table {i+1} empty after cleaning – using placeholder.")
-                    df = pd.DataFrame({"Info": ["No structured data in this table"]})
-
-                # -------------------------
-                # Detect header row safely
-                # -------------------------
-                if len(df) > 0 and df.shape[1] > 0:
-                    first_row = df.iloc[0]
-
-                    header_like = first_row.apply(
-                        lambda x: isinstance(x, str) and
-                        not str(x).replace('.', '').replace(',', '').replace('-', '').isdigit()
-                    ).any()
-
-                    if header_like:
-                        new_columns = []
-                        for idx, col in enumerate(first_row):
-                            if col and str(col).strip():
-                                new_columns.append(str(col))
-                            else:
-                                new_columns.append(f"Column_{idx}")
-
-                        df.columns = new_columns
+                    if len(df) > 0:
+                        df.columns = df.iloc[0]
                         df = df[1:].reset_index(drop=True)
+                        
+                    all_tables.append((page_num, table_num, df))
+                    print(f"   📊 Found table on page {page_num}, table {table_num}")
 
-                        if df.empty:
-                            df = original_df
-
-                # -------------------------
-                # Safe numeric conversion
-                # -------------------------
-                for col in df.columns:
-                    try:
-                        df[col] = pd.to_numeric(df[col])
-                    except Exception:
-                        pass
-
-                # -------------------------
-                # Final safety check
-                # -------------------------
-                if df.empty or df.shape[1] == 0:
-                    df = pd.DataFrame({"Info": ["Table contained no usable data"]})
-
-                # Excel sheet name (max 31 chars)
+    # -------------------------
+    # Write raw Excel first
+    # -------------------------
+    with pd.ExcelWriter(output_excel_path, engine="openpyxl") as writer:
+        if not all_tables:
+            pd.DataFrame({"Info": ["No tables found"]}).to_excel(
+                writer, sheet_name="NoData", index=False
+            )
+        else:   
+            for i, (page_num, table_num, df) in enumerate(all_tables):
                 sheet_name = f"Page{page_num}_T{table_num}"
                 if len(sheet_name) > 31:
                     sheet_name = f"T{i+1}"
 
                 df.to_excel(writer, sheet_name=sheet_name, index=False)
-                any_sheet_written = True
 
-                print(f"   ✅ Exported: {sheet_name} ({df.shape[0]} rows)")
+    print("✅ Raw Excel created. Now cleaning with NumPy...")
 
-        # Absolute final fallback
-        if not any_sheet_written:
-            pd.DataFrame(
-                {"Message": ["No data could be written from PDF"]}
-            ).to_excel(writer, sheet_name="Placeholder", index=False)
+    # -------------------------
+    # Re-open Excel and clean using NumPy
+    # -------------------------
+    xls = pd.ExcelFile(output_excel_path)
+    cleaned_writer = pd.ExcelWriter(
+        output_excel_path.replace(".xlsx", "_cleaned.xlsx"),
+        engine="openpyxl"
+    )
 
-    print(f"\n✅ Excel file created: {output_excel_path}")
-    return output_excel_path
+    for sheet in xls.sheet_names:
+        df = pd.read_excel(xls, sheet_name=sheet)
+
+        # Convert to NumPy array
+        arr = df.to_numpy(dtype=object)
+
+        # Remove commas from numeric-like strings
+        for i in range(arr.shape[0]):
+            for j in range(arr.shape[1]):
+                val = arr[i, j]
+
+                if isinstance(val, str):
+                    new_val = val.replace(",", "").strip()
+
+                    # If it becomes numeric after removing commas
+                    if new_val.replace(".", "", 1).isdigit():
+                        arr[i, j] = float(new_val)
+                    else:
+                        arr[i, j] = new_val
+
+        cleaned_df = pd.DataFrame(arr, columns=df.columns)
+        cleaned_df.to_excel(cleaned_writer, sheet_name=sheet, index=False)
+
+    cleaned_writer.close()
+
+    print(f"🎉 Cleaned Excel created: {output_excel_path.replace('.xlsx', '_cleaned.xlsx')}")
+    return output_excel_path.replace(".xlsx", "_cleaned.xlsx")
 
 
 # -------------------------
