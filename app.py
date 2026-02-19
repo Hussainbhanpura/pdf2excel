@@ -1,4 +1,5 @@
 from flask import Flask, request, send_file, jsonify
+import io
 from flask_cors import CORS
 import os
 import werkzeug
@@ -58,10 +59,28 @@ def convert_pdf():
             )
 
             if result_path and os.path.exists(result_path):
+                # Read Excel into memory so Windows releases the file lock
+                with open(result_path, 'rb') as f:
+                    excel_bytes = io.BytesIO(f.read())
+                excel_bytes.seek(0)
+
+                # Delete both files now that data is in memory
+                try:
+                    os.remove(filepath)
+                    print(f"🗑️ Deleted PDF: {filepath}")
+                except Exception as e:
+                    print(f"⚠️ Could not delete PDF: {e}")
+                try:
+                    os.remove(result_path)
+                    print(f"🗑️ Deleted Excel: {result_path}")
+                except Exception as e:
+                    print(f"⚠️ Could not delete Excel: {e}")
+
                 return send_file(
-                    result_path,
+                    excel_bytes,
                     as_attachment=True,
-                    download_name=output_filename
+                    download_name=output_filename,
+                    mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
                 )
             else:
                 return jsonify({'error': 'Conversion failed'}), 500

@@ -32,7 +32,7 @@ def pdf_to_excel_pdfplumber(pdf_path, output_excel_path=None):
                         df = df[1:].reset_index(drop=True)
                     
                     all_dfs.append(df)
-                    print(f"   📊 Found table on page {page_num}, table {table_num}")
+                    print(f"📊 Found table on page {page_num}, table {table_num}")
 
     # -------------------------
     # 2. Merge and Clean
@@ -94,7 +94,7 @@ if __name__ == "__main__":
         out_path = input("Output Excel (Enter for auto): ").strip().strip('"') or None
 
     try:
-        pdf_to_excel_single_sheet(pdf_path, out_path)
+        pdf_to_excel_pdfplumber(pdf_path, out_path)
     except Exception as e:
         print(f"❌ Error: {e}")
         sys.exit(1)
