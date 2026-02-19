@@ -3,28 +3,26 @@ import io
 from flask_cors import CORS
 import os
 import werkzeug
+from dotenv import load_dotenv
 from plumber_pdf import pdf_to_excel_pdfplumber  # ✅ UPDATED IMPORT
+
+load_dotenv()  # Load variables from .env
 
 app = Flask(__name__)
 
-# Enable CORS
-frontend_url = os.environ.get('FRONTEND_URL', '*')
-allowed_origins = [frontend_url]
+# Enable CORS — origins loaded from FRONTEND_URL in .env
+frontend_url = os.getenv('FRONTEND_URL', '*')
 
-if frontend_url != '*':
-    allowed_origins = frontend_url.split(',')
-
-# Add Vercel domain if not present
-allowed_origins.extend([
-    "http://localhost:5173/",
-    " http://10.10.8.230:5173/"
-])
+if frontend_url == '*':
+    allowed_origins = ['*']
+else:
+    allowed_origins = [u.strip() for u in frontend_url.split(',')]
 
 CORS(app, resources={r"/*": {"origins": allowed_origins}},
      expose_headers=["Content-Disposition"])
 
-UPLOAD_FOLDER = 'uploads'
-OUTPUT_FOLDER = 'outputs'
+UPLOAD_FOLDER = os.getenv('UPLOAD_FOLDER', 'uploads')
+OUTPUT_FOLDER = os.getenv('OUTPUT_FOLDER', 'outputs')
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
@@ -97,5 +95,6 @@ def health_check():
 
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(debug=True, host='0.0.0.0', port=port)
+    port = int(os.getenv('PORT', 5000))
+    debug = os.getenv('DEBUG', 'True').lower() == 'true'
+    app.run(debug=debug, host='0.0.0.0', port=port)
