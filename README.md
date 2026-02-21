@@ -39,12 +39,7 @@ Open `http://localhost:5173` to use the converter.
 
 ### Prerequisites
 
-This project uses **Camelot**, which requires some system dependencies:
-
-**On Windows:**
-- Install [Ghostscript](https://www.ghostscript.com/download/gsdnld.html)
-  - Download and install the Windows installer
-  - Add Ghostscript to your PATH
+This project uses **PdfPlumber**, which requires some system dependencies:
 
 ### Install Python Dependencies
 
@@ -71,32 +66,18 @@ python pdf_to_excel.py input.pdf
 # Specify output file
 python pdf_to_excel.py input.pdf output.xlsx
 
-# Specify extraction method (lattice or stream)
-python pdf_to_excel.py input.pdf output.xlsx lattice
-```
-
-### Extraction Methods
-
-1. **lattice** (default) - Best for tables with clear borders
-   - Uses table borders to identify cells
-   - Higher accuracy for structured tables
-
-2. **stream** - Best for tables without borders
-   - Uses whitespace to identify columns
-   - Better for simple, borderless tables
-
 ## How It Works
 
-1. **PDF Analysis**: Camelot analyzes the PDF structure
-2. **Table Detection**: Identifies tables using lattice or stream method
+1. **PDF Analysis**: PdfPlumber analyzes the PDF structure
+2. **Table Detection**: Identifies tables
 3. **Data Extraction**: Extracts table data while preserving structure
-4. **Excel Export**: Creates an Excel file with separate sheets for each table
+4. **Excel Export**: Creates an Excel file with all the data combined
 5. **Validation**: Reports accuracy percentage for each extracted table
 
 ## Output Format
 
-- Each table is saved to a separate Excel sheet
-- Sheet names: `Table_1_Page_1`, `Table_2_Page_2`, etc.
+- All of the data is merged into a single sheet
+- Sheet name: `ALL_Data`.
 - Original table structure and formatting preserved
 - Empty rows/columns automatically removed
 
@@ -111,20 +92,13 @@ extract_tables_from_pdf('document.pdf', 'output.xlsx', flavor='lattice')
 
 ## Tips for Best Results
 
-- Use **lattice** method for tables with visible borders
-- Use **stream** method for tables without borders
 - Ensure your PDF is not scanned images (use OCR first if needed)
 - High-quality PDFs produce better extraction results
 
 ## Troubleshooting
 
 **No tables found?**
-- Try switching between 'lattice' and 'stream' methods
 - Ensure the PDF contains actual tables (not images of tables)
-
-**Ghostscript error?**
-- Make sure Ghostscript is installed and in your PATH
-- Restart your terminal after installing
 
 **Poor accuracy?**
 - Try the alternative extraction method
