@@ -38,7 +38,7 @@ export function useConversion() {
         const formData = new FormData()
         formData.append('file', file)
 
-        const apiUrl = import.meta.env.VITE_API_URL || "http://10.10.8.230:5000"
+        const apiUrl = import.meta.env.VITE_API_URL || process.env.VITE_API_URL
         try {
             const response = await fetch(`${apiUrl}/api/convert`, {
                 method: 'POST',
@@ -73,7 +73,7 @@ export function useConversion() {
             document.body.appendChild(link)
             link.click()
             document.body.removeChild(link)
-            
+
             setFileName(outputName)
 
         } catch (err) {
